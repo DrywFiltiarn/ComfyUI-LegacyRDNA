@@ -23,7 +23,7 @@ Function Get-InstalledTorchVersions {
 Function Get-LatestTorchBuilds {
     Param([string]$Arch)
     
-    $packages = @("torch", "torchvision", "torchaudio")
+    $packages = @("torch", "torchvision", "torchaudio", "rocm")
     $results = @{}
     $globalDate = "00000000"
 
@@ -97,6 +97,7 @@ Function Sync-TorchArchives {
     if ($success) {
         # NEW: Log in specific order with explicit version strings
         $logContent = @(
+            "ROCM: $($BuildInfo.Packages['rocm'].Version)",
             "TORCH: $($BuildInfo.Packages['torch'].Version)",
             "TORCHVISION: $($BuildInfo.Packages['torchvision'].Version)",
             "TORCHAUDIO: $($BuildInfo.Packages['torchaudio'].Version)"

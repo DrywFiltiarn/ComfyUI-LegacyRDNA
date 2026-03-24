@@ -62,7 +62,7 @@ Function Install-ValidationDeps {
     # 3. Install/Update wheels into the venv
     & $Global:Log -Message "Syncing dependencies to validation venv..." -Level "INFO"
     foreach ($whl in $wheels) {
-        & $python -m pip install --force-reinstall --no-deps "$whl"
+        & $python -m pip install --force-reinstall "$whl"
     }
     
     # 4. Final dependencies (requirements.txt if present)
