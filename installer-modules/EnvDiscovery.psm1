@@ -13,6 +13,18 @@ Function Get-OSStatus {
     }
 }
 
+Function Get-GitStatus {
+    try {
+        $gitVerRaw = & git --version 2>&1
+        if ($gitVerRaw -match "git version ([\d\.]+)") {
+            return @{ Success = $true; Version = $matches[1] }
+        }
+    } catch {
+        return @{ Success = $false; Error = "Missing" }
+    }
+    return @{ Success = $false; Error = "Missing" }
+}
+
 Function Get-PythonStatus {
     try {
         $pyVerRaw = & python --version 2>&1
@@ -86,4 +98,4 @@ Function Get-VRAMSize {
     return "Unknown"
 }
 
-Export-ModuleMember -Function Get-ElevationStatus, Get-OSStatus, Get-PythonStatus, Get-AMDGPUStatus, Get-VRAMSize
+Export-ModuleMember -Function Get-ElevationStatus, Get-OSStatus, Get-GitStatus, Get-PythonStatus, Get-AMDGPUStatus, Get-VRAMSize

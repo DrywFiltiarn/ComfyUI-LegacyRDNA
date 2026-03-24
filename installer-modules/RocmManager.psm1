@@ -71,7 +71,7 @@ Function Sync-RocmArchive {
     & $Global:Log -Message "Cleaning .cache..." -Level "DEBUG"
     Get-ChildItem $cacheDir -Filter "therock-dist-windows-*.tar.gz" | Remove-Item -Force
 
-    Write-Host "[!] Initiating High-Speed Download (curl.exe): $($BuildInfo.FileName)" -ForegroundColor Cyan
+    Write-Host "[!] Initiating download: $($BuildInfo.FileName)" -ForegroundColor Cyan
     
     try {
         & curl.exe --fail -L -# -o "$targetPath" "$($BuildInfo.Url)"

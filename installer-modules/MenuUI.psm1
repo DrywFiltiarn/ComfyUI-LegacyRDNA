@@ -17,10 +17,21 @@ Function Show-Header {
 }
 
 Function Get-MenuSelection {
-    Param([string]$RocmActionLabel, [string]$TorchActionLabel)
+    Param(
+        [string]$RocmAction, 
+        [string]$TorchAction, 
+        [string]$ValAction, 
+        [bool]$CanRunVal
+    )
     
-    Write-Host "  1) " -NoNewline -ForegroundColor Green; Write-Host "$RocmActionLabel ROCm SDK Nightly"
-    Write-Host "  2) " -NoNewline -ForegroundColor Green; Write-Host "$TorchActionLabel Torch/Vision/Audio WHLs"
+    Write-Host "  1) " -NoNewline -ForegroundColor Green; Write-Host "$RocmAction ROCm SDK Nightly"
+    Write-Host "  2) " -NoNewline -ForegroundColor Green; Write-Host "$TorchAction Torch/Vision/Audio WHLs"
+    Write-Host "  3) " -NoNewline -ForegroundColor Green; Write-Host "$ValAction ROCm Validation Suite"
+    
+    if ($CanRunVal) {
+        Write-Host "  4) " -NoNewline -ForegroundColor Green; Write-Host "Run ROCm Validation Tests"
+    }
+
     Write-Host "  Q) " -NoNewline -ForegroundColor Red; Write-Host "Quit"
     Write-Host ""
     return Read-Host "Select an option"

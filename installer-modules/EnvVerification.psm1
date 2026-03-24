@@ -32,6 +32,19 @@ Function Assert-OSCompatibility {
     }
 }
 
+Function Assert-GitCompatibility {
+    Param([hashtable]$GitStatus)
+    Write-Host "[*] Verifying Git Installation..." -NoNewline
+    if ($GitStatus.Success) {
+        Write-Host " [OK]" -ForegroundColor Green
+        Write-Host "     Detected: Git $($GitStatus.Version)" -ForegroundColor Gray
+    } else {
+        Write-Host " [FAILED]" -ForegroundColor Red
+        Write-Host "     Action: Please install Git for Windows from https://git-scm.com/download/win" -ForegroundColor White
+        throw "Git not found in PATH."
+    }
+}
+
 Function Assert-PythonCompatibility {
     Param([hashtable]$PyStatus)
     Write-Host "[*] Verifying Python 3.12..." -NoNewline
@@ -73,4 +86,4 @@ Function Assert-GPUCompatibility {
     }
 }
 
-Export-ModuleMember -Function Assert-Elevation, Assert-OSCompatibility, Assert-PythonCompatibility, Assert-GPUCompatibility
+Export-ModuleMember -Function Assert-Elevation, Assert-OSCompatibility, Assert-GitCompatibility, Assert-PythonCompatibility, Assert-GPUCompatibility

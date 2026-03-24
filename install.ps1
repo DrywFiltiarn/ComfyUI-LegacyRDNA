@@ -22,12 +22,14 @@ Import-Module ".\installer-modules\EnvDiscovery.psm1" -Force
 Import-Module ".\installer-modules\EnvVerification.psm1" -Force
 Import-Module ".\installer-modules\RocmManager.psm1" -Force
 Import-Module ".\installer-modules\TorchManager.psm1" -Force
+Import-Module ".\installer-modules\ValidationManager.psm1" -Force
 Import-Module ".\installer-modules\MenuUI.psm1" -Force
 
 try {
     # PHASE 1: INITIAL VERIFICATION
     Clear-Host
     Assert-Elevation -IsElevated (Get-ElevationStatus)
+    Assert-GitCompatibility -GitStatus (Get-GitStatus)
     $currentGPU = Get-AMDGPUStatus
     Assert-OSCompatibility -OSStatus (Get-OSStatus)
     Assert-PythonCompatibility -PyStatus (Get-PythonStatus)
@@ -41,27 +43,23 @@ try {
     $running = $true
 
     while ($running) {
-        # 1. Gather States
         $rocmVersion = Get-InstalledRocmVersion
-        $torchVers = Get-InstalledTorchVersions  # Now returns a hashtable of 3 versions
+        $torchVers = Get-InstalledTorchVersions
+        $valStatus = Get-ValidationStatus
         
-        # 2. Determine Action Labels
+        Assert-ValidationIntegrity -Status $valStatus
+
         $rocmAction = if ($rocmVersion -eq "None") { "Install" } else { "Update" }
-        
-        # Logic: If any of the 3 are missing, label as "Download", otherwise "Update"
         $hasAllTorch = ($torchVers.torch -ne "None") -and ($torchVers.torchvision -ne "None") -and ($torchVers.torchaudio -ne "None")
         $torchAction = if ($hasAllTorch) { "Update" } else { "Download" }
+        $valAction = if ($valStatus -eq "None") { "Install" } else { "Update" }
+        $canRunVal = ($valStatus -eq "Ready")
 
-        # 3. Render
         Show-Header -GPUName $currentGPU.Name -Arch $Global:Env_GfxArch -VRAM $Global:Env_VRAM `
                     -RocmVer $rocmVersion -TorchVers $torchVers
 
-        Write-Host "  1) " -NoNewline -ForegroundColor Green; Write-Host "$rocmAction ROCm SDK Nightly"
-        Write-Host "  2) " -NoNewline -ForegroundColor Green; Write-Host "$torchAction Torch/Vision/Audio WHLs"
-        Write-Host "  Q) " -NoNewline -ForegroundColor Red; Write-Host "Quit"
-        Write-Host ""
-        
-        $choice = Read-Host "Select an option"
+        $choice = Get-MenuSelection -RocmAction $rocmAction -TorchAction $torchAction `
+                                            -ValAction $valAction -CanRunVal $canRunVal
         
         switch ($choice) {
             "1" {
@@ -83,6 +81,16 @@ try {
                 }
                 Read-Host "`nPress Enter to return to menu..."
             }
+            "3" {
+                Sync-ValidationRepo
+                Install-ValidationDeps
+                Read-Host "`nPress Enter to return to menu..."
+            }
+            "4" {
+                if ($canRunVal) { Invoke-ValidationTests }
+                else { Write-Host "Please install or repair the Validation Suite first." -ForegroundColor Yellow }
+                Read-Host "`nPress Enter to return to menu..."
+            }            
             "Q" { $running = $false }
         }
     }
