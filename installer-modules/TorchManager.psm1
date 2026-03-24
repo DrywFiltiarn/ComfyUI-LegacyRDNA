@@ -70,8 +70,8 @@ Function Get-LatestTorchBuilds {
         }
     }
 
-    if ($results.Count -eq 3) {
-        return @{ Packages = $results; Version = "Nightly-a$globalDate" }
+    if ($results.Count -eq 4) {
+        return @{ Packages = $results; Version = "nightly-$globalDate" }
     }
     return $null
 }
