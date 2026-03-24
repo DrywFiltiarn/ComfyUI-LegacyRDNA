@@ -1,17 +1,20 @@
 Function Get-InstalledRocmVersion {
     $cacheDir = Join-Path $PSScriptRoot "..\.cache"
-    $versionFile = Join-Path $cacheDir "rocm-version.txt"
     $rocmPath = Join-Path $PSScriptRoot "..\rocm-nightly"
+    $versionFile = Join-Path $cacheDir "rocm-version.txt"
     
-    $hasVersionInfo = Test-Path $versionFile
-    $hasArchive = (Get-ChildItem $cacheDir -Filter "therock-dist-windows-*.tar.gz" -ErrorAction SilentlyContinue).Count -gt 0
+    # Parity with Torch: Require the version file to exist as a primary trigger
+    if (-not (Test-Path $versionFile)) { return "None" }
+
+    # Parity with Torch: Scan for the actual archive in cache to verify integrity
+    $archive = Get-ChildItem $cacheDir -Filter "therock-dist-windows-*.tar.gz" -ErrorAction SilentlyContinue | Select-Object -First 1
     $hasFolderContents = (Test-Path $rocmPath) -and ((Get-ChildItem $rocmPath -ErrorAction SilentlyContinue).Count -gt 0)
 
-    if ($hasVersionInfo -and $hasArchive -and $hasFolderContents) {
-        try {
-            return (Get-Content $versionFile -Raw).Trim()
-        } catch {
-            return "None"
+    if ($archive -and $hasFolderContents) {
+        # Parity with Torch: Extract the version string from the filename via Regex
+        # Expected format: therock-dist-windows-gfx1030-dgpu-6.3.0.60300-92.tar.gz
+        if ($archive.Name -match "therock-dist-windows-.*-dgpu-(.*)\.tar\.gz") {
+            return $Matches[1]
         }
     }
     return "None"
@@ -74,7 +77,7 @@ Function Sync-RocmArchive {
         & curl.exe --fail -L -# -o "$targetPath" "$($BuildInfo.Url)"
         if ($LASTEXITCODE -ne 0) { throw "curl failed." }
         
-        $BuildInfo.Version | Out-File $versionFile -Force
+        "ROCM: ${BuildInfo.Version}" | Out-File $versionFile -Force
         return $true
     } catch {
         & $Global:Log -Message "Download failed." -Level "ERROR" -Color Red
