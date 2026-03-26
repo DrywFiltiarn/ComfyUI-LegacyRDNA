@@ -5,22 +5,37 @@ Function Show-Header {
         [string]$GPUName,
         [string]$Arch,
         [string]$VRAM,
-        [string]$RocmVer,     # The ROCm SDK Version
-        [hashtable]$TorchVers # Contains torch, torchvision, torchaudio, and rocm
+        [string]$RocmVer,
+        [hashtable]$TorchVers
     )
     
+    $archLower = $Arch.ToLower()
+    $libKey = "rocm-sdk-libraries-$archLower-dgpu"
+
     Clear-Host
     Write-Host "================================================================" -ForegroundColor Gray
     Write-Host "          ComfyUI-LegacyRDNA - ROCm Nightly Manager             " -ForegroundColor Cyan
     Write-Host "================================================================" -ForegroundColor Gray
     Write-Host "  GPU: $GPUName ($Arch) | VRAM: $VRAM" -ForegroundColor White
     Write-Host "----------------------------------------------------------------" -ForegroundColor Gray
-    Write-Host "  ROCm SDK: " -NoNewline; Write-Host "$RocmVer" -ForegroundColor Yellow
+    Write-Host "  $("ROCm SDK".PadRight(15)): " -NoNewline; Write-Host "$RocmVer" -ForegroundColor Yellow
     Write-Host "----------------------------------------------------------------" -ForegroundColor Gray
-    Write-Host "  ROCm Py:  " -NoNewline; Write-Host "$($TorchVers.rocm)" -ForegroundColor Yellow
-    Write-Host "  Torch:    " -NoNewline; Write-Host "$($TorchVers.torch)" -ForegroundColor Yellow
-    Write-Host "  Vision:   " -NoNewline; Write-Host "$($TorchVers.torchvision)" -ForegroundColor Yellow
-    Write-Host "  Audio:    " -NoNewline; Write-Host "$($TorchVers.torchaudio)" -ForegroundColor Yellow
+
+    # List in order of relevance
+    $items = @(
+        @{ Key = "rocm-sdk-core"; Label = "ROCm SDK Core" },
+        @{ Key = $libKey;         Label = "ROCm SDK Libs" },
+        @{ Key = "rocm";          Label = "ROCm Python" },
+        @{ Key = "torch";         Label = "PyTorch" },
+        @{ Key = "torchvision";   Label = "PyTorch Vision" },
+        @{ Key = "torchaudio";    Label = "PyTorch Audio" }
+    )
+
+    foreach ($item in $items) {
+        $val = if ($TorchVers.ContainsKey($item.Key)) { $TorchVers[$item.Key] } else { "None" }
+        Write-Host "  $($item.Label.PadRight(15)): " -NoNewline
+        Write-Host "$val" -ForegroundColor Yellow
+    }
     Write-Host "----------------------------------------------------------------" -ForegroundColor Gray
     Write-Host ""
 }

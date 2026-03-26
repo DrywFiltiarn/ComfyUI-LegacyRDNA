@@ -2,40 +2,36 @@ Function Get-InstalledTorchVersions {
     $cacheDir = Join-Path $PSScriptRoot "..\.cache"
     $versionFile = Join-Path $cacheDir "torch-version.txt"
     
-    # Resolve dynamic library name using existing global environment variable
     $ArchSuffix = $Global:Env_GfxArch.ToLower()
     $LibPkg = "rocm-sdk-libraries-$ArchSuffix-dgpu"
     
-    $packageNames = @(
-        "rocm-sdk-core", 
-        $LibPkg, 
-        "rocm", 
-        "torch", 
-        "torchvision", 
-        "torchaudio"
-    )
+    # Define packages to look for
+    $packageNames = @("rocm-sdk-core", $LibPkg, "rocm", "torch", "torchvision", "torchaudio")
     
     $results = @{ Success = $false; Versions = @{} }
     foreach ($pkg in $packageNames) { $results.Versions[$pkg] = "None" }
 
     if (-not (Test-Path $versionFile)) { return $results }
 
-    $cacheFiles = Get-ChildItem $cacheDir -Include "*.whl", "*.tar.gz" -ErrorAction SilentlyContinue
+    # Read the manifest directly
+    $lines = Get-Content $versionFile
     $missingAny = $false
 
     foreach ($pkg in $packageNames) {
-        $pkgSearch = $pkg -replace '-', '[_-]'
-        $pattern = ".*$pkgSearch.*(\d+\.\d+\.\d+a\d{8})"
-        
-        $match = $cacheFiles | Where-Object { $_.Name -match $pattern }
-        if ($match) {
-            $results.Versions[$pkg] = $Matches[1]
-        } else {
-            $missingAny = $true
+        # Match the line format "PACKAGE: filename" created by Sync-TorchArchives
+        $line = $lines | Where-Object { $_ -match "^$($pkg.ToUpper()):\s+(.*)" }
+        if ($line) {
+            $fileName = $Matches[1]
+            # Extract the date-based version (e.g., 7.13.0a20260326)
+            if ($fileName -match "(\d+\.\d+\.\d+a\d{8})") {
+                $results.Versions[$pkg] = $Matches[1]
+            }
         }
+        
+        if ($results.Versions[$pkg] -eq "None") { $missingAny = $true }
     }
 
-    if (-not $missingAny) { $results.Success = $true }
+    $results.Success = -not $missingAny
     return $results
 }
 
