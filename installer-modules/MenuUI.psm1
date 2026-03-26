@@ -6,7 +6,8 @@ Function Show-Header {
         [string]$Arch,
         [string]$VRAM,
         [string]$RocmVer,
-        [hashtable]$TorchVers
+        [hashtable]$TorchVers,
+        [string]$ValStatus
     )
     
     $archLower = $Arch.ToLower()
@@ -41,6 +42,16 @@ Function Show-Header {
         Write-Host "  $($item.Label.PadRight(15)) : " -NoNewline
         Write-Host "$val" -ForegroundColor Yellow
     }
+
+    # Add Validation Status line
+    Write-Host "----------------------------------------------------------------" -ForegroundColor Gray
+    $valColor = switch ($ValStatus) {
+        "Ready" { "Green" }
+        "None"  { "Red" }
+        Default { "Yellow" }
+    }
+    Write-Host "  Validation Suite: " -NoNewline
+    Write-Host "$ValStatus" -ForegroundColor $valColor
 
     Write-Host "----------------------------------------------------------------" -ForegroundColor Gray
     Write-Host ""

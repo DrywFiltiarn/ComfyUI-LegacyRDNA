@@ -53,11 +53,12 @@ try {
         $rocmAction = if ($rocmVersion -eq "None") { "Install" } else { "Update" }
         $hasAllTorch = $torchStatus.Success
         $torchAction = if ($hasAllTorch) { "Update" } else { "Download" }
+        $valStatus = Get-ValidationStatus
         $valAction = if ($valStatus -eq "None") { "Install" } else { "Update" }
         $canRunVal = ($valStatus -eq "Ready")
 
         Show-Header -GPUName $currentGPU.Name -Arch $Global:Env_GfxArch -VRAM $Global:Env_VRAM `
-                    -RocmVer $rocmVersion -TorchVers $torchVers
+                    -RocmVer $rocmVersion -TorchVers $torchVers -ValStatus $valStatus
 
         $choice = Get-MenuSelection -RocmAction $rocmAction -TorchAction $torchAction `
                                             -ValAction $valAction -CanRunVal $canRunVal
