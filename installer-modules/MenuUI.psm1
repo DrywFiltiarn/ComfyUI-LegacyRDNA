@@ -1,5 +1,3 @@
-# installer-modules\MenuUI.psm1
-
 Function Show-Header {
     Param(
         [string]$GPUName,
@@ -27,7 +25,6 @@ Function Show-Header {
         $sdkLibsVal = "$sdkLibsVal | $archLower"
     }
 
-    # List in order of relevance
     $displayItems = @(
         @{ Label = "ROCm SDK Core"  ; Value = $TorchVers['rocm-sdk-core'] }
         @{ Label = "ROCm SDK Libs"  ; Value = $sdkLibsVal }
@@ -43,7 +40,6 @@ Function Show-Header {
         Write-Host "$val" -ForegroundColor Yellow
     }
 
-    # Add Validation Status line
     Write-Host "----------------------------------------------------------------" -ForegroundColor Gray
     $valColor = switch ($ValStatus) {
         "Ready" { "Green" }

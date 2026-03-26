@@ -69,7 +69,6 @@ Function Get-AMDGPUStatus {
 
 Function Get-VRAMSize {
     try {
-        # Primary: Registry Query using the 64-bit QWORD entry (HardwareInformation.qwMemorySize)
         $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"
         $adapters = Get-ChildItem $regPath -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match "^\d{4}$" }
         
@@ -84,7 +83,6 @@ Function Get-VRAMSize {
             }
         }
 
-        # Fallback: WMI with bitwise correction for legacy compatibility
         $gpu = Get-CimInstance Win32_VideoController | Where-Object { $_.Name -match "AMD Radeon" } | Select-Object -First 1
         if ($gpu) {
             $rawRAM = $gpu.AdapterRAM

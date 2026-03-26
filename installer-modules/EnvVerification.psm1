@@ -1,5 +1,3 @@
-# installer-modules\EnvVerification.psm1
-
 Function Assert-Elevation {
     Param([bool]$IsElevated)
     Write-Host "[*] Checking for Administrator privileges..." -NoNewline

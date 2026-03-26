@@ -3,16 +3,12 @@ Function Get-InstalledRocmVersion {
     $rocmPath = Join-Path $PSScriptRoot "..\rocm-nightly"
     $versionFile = Join-Path $cacheDir "rocm-version.txt"
     
-    # Parity with Torch: Require the version file to exist as a primary trigger
     if (-not (Test-Path $versionFile)) { return "None" }
 
-    # Parity with Torch: Scan for the actual archive in cache to verify integrity
     $archive = Get-ChildItem $cacheDir -Filter "therock-dist-windows-*.tar.gz" -ErrorAction SilentlyContinue | Select-Object -First 1
     $hasFolderContents = (Test-Path $rocmPath) -and ((Get-ChildItem $rocmPath -ErrorAction SilentlyContinue).Count -gt 0)
 
     if ($archive -and $hasFolderContents) {
-        # Parity with Torch: Extract the version string from the filename via Regex
-        # Expected format: therock-dist-windows-gfx1030-dgpu-6.3.0.60300-92.tar.gz
         if ($archive.Name -match "therock-dist-windows-.*-dgpu-(.*)\.tar\.gz") {
             return $Matches[1]
         }
@@ -56,7 +52,6 @@ Function Get-LatestRocmBuild {
 Function Sync-RocmArchive {
     Param([hashtable]$BuildInfo)
     $cacheDir = Join-Path $PSScriptRoot "..\.cache"
-    # Capture New-Item to prevent "DirectoryInfo" object output
     if (-not (Test-Path $cacheDir)) { $null = New-Item -ItemType Directory $cacheDir -Force }
 
     $targetPath = Join-Path $cacheDir $BuildInfo.FileName
@@ -65,7 +60,7 @@ Function Sync-RocmArchive {
     if (Test-Path $targetPath) {
         & $Global:Log -Message "ROCm achive already cached." -Level "INFO" -Color Cyan
         $BuildInfo.Version | Out-File $versionFile -Force
-        return $false # Return boolean for logic, but caller MUST capture it
+        return $false
     }
 
     & $Global:Log -Message "Cleaning .cache..." -Level "DEBUG"
@@ -96,7 +91,6 @@ Function Expand-RocmArchive {
         Remove-Item -Path $targetDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    # Capture directory creation
     $null = New-Item -ItemType Directory $targetDir -Force
 
     Write-Host "[!] Extracting ROCm SDK via tar.exe..." -ForegroundColor Cyan

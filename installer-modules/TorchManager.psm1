@@ -2,7 +2,6 @@ Function Get-InstalledTorchVersions {
     $cacheDir = Join-Path $PSScriptRoot "..\.cache"
     $versionFile = Join-Path $cacheDir "torch-version.txt"
     
-    # Resolve dynamic library name
     $ArchSuffix = $Global:Env_GfxArch.ToLower()
     $LibPkg = "rocm-sdk-libraries-$ArchSuffix-dgpu"
     
@@ -12,7 +11,6 @@ Function Get-InstalledTorchVersions {
 
     if (-not (Test-Path $versionFile)) { return $results }
 
-    # Read manifest directly to avoid pipeline scoping issues
     $lines = Get-Content $versionFile
     $missingAny = $false
 
@@ -21,14 +19,10 @@ Function Get-InstalledTorchVersions {
         if ($line) {
             $fileName = $Matches[1]
             
-            # Captures both the package version (e.g., 2.10.0) and ROCm date (e.g., 7.13.0a20260326)
-            # Logic: Look for the first version string (package) and the one starting with 7.x (ROCm)
             if ($fileName -match "-([\d\.]+).*(7\.\d+\.\d+a\d{8})") {
-                # Format: ROCm-Ver | Package-Ver
                 $results.Versions[$pkg] = "$($Matches[2]) | $($Matches[1])"
             }
             elseif ($fileName -match "(7\.\d+\.\d+a\d{8})") {
-                # Fallback for core/python packages
                 $results.Versions[$pkg] = $Matches[1]
             }
         }
@@ -92,7 +86,6 @@ Function Get-LatestTorchBuilds {
         }
     }
 
-    # Intersection: Find common versions across all 6 repos
     $commonVersions = $packageBuilds["rocm-sdk-core"].Version | Select-Object -Unique
     foreach ($pkg in $packages) {
         $pkgVersions = $packageBuilds[$pkg].Version | Select-Object -Unique
@@ -125,7 +118,6 @@ Function Sync-TorchArchives {
     
     if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir | Out-Null }
 
-    # Keys are derived from the matched BuildInfo
     $packages = $BuildInfo.Packages.Keys
     $success = $true
 
@@ -137,10 +129,6 @@ Function Sync-TorchArchives {
 
         & $Global:Log -Message "Syncing: $($item.FileName)" -Level "INFO"
         
-        # IMPROVED SURGICAL CLEANUP:
-        # 1. Escapes the package name for regex and handles dash/underscore flexibility.
-        # 2. Anchors to the start of the string (^) so 'rocm' doesn't match 'torch-...+rocm'.
-        # 3. Ensures the package name is followed by a separator and a digit (the version start).
         $escapedPkg = [regex]::Escape($pkg) -replace '-', '[-_]'
         $cleanupRegex = "^$($escapedPkg)[-_](?=\d)"
 
