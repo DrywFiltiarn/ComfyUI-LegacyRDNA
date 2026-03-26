@@ -2,27 +2,36 @@ Function Get-InstalledTorchVersions {
     $cacheDir = Join-Path $PSScriptRoot "..\.cache"
     $versionFile = Join-Path $cacheDir "torch-version.txt"
     
-    # Priority Order: ROCM first
-    $packageNames = @("rocm", "torch", "torchvision", "torchaudio")
+    # Resolve dynamic library name using existing global environment variable
+    $ArchSuffix = $Global:Env_GfxArch.ToLower()
+    $LibPkg = "rocm-sdk-libraries-$ArchSuffix-dgpu"
+    
+    $packageNames = @(
+        "rocm-sdk-core", 
+        $LibPkg, 
+        "rocm", 
+        "torch", 
+        "torchvision", 
+        "torchaudio"
+    )
+    
     $results = @{ Success = $false; Versions = @{} }
     foreach ($pkg in $packageNames) { $results.Versions[$pkg] = "None" }
 
     if (-not (Test-Path $versionFile)) { return $results }
 
-    $whlFiles = Get-ChildItem $cacheDir -Filter "*.whl" -ErrorAction SilentlyContinue
+    $cacheFiles = Get-ChildItem $cacheDir -Include "*.whl", "*.tar.gz" -ErrorAction SilentlyContinue
     $missingAny = $false
 
     foreach ($pkg in $packageNames) {
-        # Handle different formats: .tar.gz for rocm, .whl for others
-        $pattern = if ($pkg -eq "rocm") { "^rocm-([\d\.\w\+]+a\d{8})\.tar\.gz" } 
-                   else { "^$($pkg)-([\d\.\w\+]+)-cp312" }
+        $pkgSearch = $pkg -replace '-', '[_-]'
+        $pattern = ".*$pkgSearch.*(\d+\.\d+\.\d+a\d{8})"
         
         $match = $cacheFiles | Where-Object { $_.Name -match $pattern }
         if ($match) {
             $results.Versions[$pkg] = $Matches[1]
         } else {
             $missingAny = $true
-            & $Global:Log -Message "DEBUG: Missing cached component: $pkg" -Level "DEBUG" -Color Yellow
         }
     }
 
@@ -31,36 +40,50 @@ Function Get-InstalledTorchVersions {
 }
 
 Function Get-LatestTorchBuilds {
-    Param([string]$Arch)
+    $Arch = $Global:Env_GfxArch
+    $ArchSuffix = $Arch.ToLower()
+    $LibPkg = "rocm-sdk-libraries-$ArchSuffix-dgpu"
     
-    # Priority Order: ROCM first
-    $packages = @("rocm", "torch", "torchvision", "torchaudio")
+    $packages = @(
+        "rocm-sdk-core", 
+        $LibPkg, 
+        "rocm", 
+        "torch", 
+        "torchvision", 
+        "torchaudio"
+    )
+    
     $packageBuilds = @{} 
     $baseUrlBase = "https://rocm.nightlies.amd.com/v2-staging/$Arch-dgpu"
 
     foreach ($pkg in $packages) {
-        $url = "$baseUrlBase/$pkg"
+        $url = "$baseUrlBase/$pkg/"
         & $Global:Log -Message "Querying ${pkg} index: $url" -Level "DEBUG"
         try {
             $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 20
-
-            # Specialized pattern for ROCm (.tar.gz) vs others (.whl)
-            $pattern = if ($pkg -eq "rocm") { 'href="([^"]*rocm-[\d\.\w\+]+?a(\d{8})\.tar\.gz)"' }
-                       else { 'href="([^"]*' + $pkg + '[^"]*?a(\d{8})[^"]*?cp312[^"]*?win_amd64\.whl)"' }
             
+            $pattern = 'href="([^"]*?(\d+\.\d+\.\d+a\d{8})[^"]*?\.(whl|tar\.gz))"'
             $matches = [regex]::Matches($resp.Content, $pattern)
             
             $builds = $matches | ForEach-Object {
+                $fName = ($_.Groups[1].Value -replace '^\.*\/+', '') -replace '%2B', '+'
+                $fullVer = $_.Groups[2].Value
+                
+                if ($pkg -eq "rocm") {
+                    if ($fName -notmatch "\.tar\.gz$") { return }
+                } else {
+                    if ($fName -notmatch "win_amd64") { return }
+                    if ($pkg -match "torch" -and $fName -notmatch "cp312") { return }
+                    if ($pkg -eq "torchvision" -and $fName -notmatch "torchvision-0\.25\.") { return }
+                }
+
                 [PSCustomObject]@{
-                    Date     = $_.Groups[2].Value
+                    Version  = $fullVer
                     RawHref  = $_.Groups[1].Value
-                    FileName = ($_.Groups[1].Value -replace '^\.*\/+', '') -replace '%2B', '+'
+                    FileName = $fName
                 }
             }
             
-            # [DEBUG] reporting of found versions on server
-            $foundDates = ($builds.Date | Select-Object -Unique | Sort-Object -Descending) -join ", "
-            & $Global:Log -Message "DEBUG: $pkg found dates on server: [$foundDates]" -Level "DEBUG" -Color Gray
             $packageBuilds[$pkg] = $builds
         } catch {
             & $Global:Log -Message "Failed to reach index for $pkg." -Level "ERROR"
@@ -68,67 +91,73 @@ Function Get-LatestTorchBuilds {
         }
     }
 
-    # Intersection Logic: Find dates where ALL 4 exist
-    $commonDates = $packageBuilds["rocm"].Date | Select-Object -Unique
+    # Intersection: Find common versions across all 6 repos
+    $commonVersions = $packageBuilds["rocm-sdk-core"].Version | Select-Object -Unique
     foreach ($pkg in $packages) {
-        $pkgDates = $packageBuilds[$pkg].Date | Select-Object -Unique
-        $commonDates = $commonDates | Where-Object { $pkgDates -contains $_ }
+        $pkgVersions = $packageBuilds[$pkg].Version | Select-Object -Unique
+        $commonVersions = $commonVersions | Where-Object { $_ -in $pkgVersions }
     }
 
-    if ($null -eq $commonDates -or $commonDates.Count -eq 0) {
-        & $Global:Log -Message "No synchronized nightly bundle (all 4 wheels) found on server." -Level "WARN"
+    if ($null -eq $commonVersions -or $commonVersions.Count -eq 0) {
+        & $Global:Log -Message "No synchronized win_amd64 bundle found for $Arch." -Level "WARN"
         return $null
     }
 
-    $latestCommonDate = ($commonDates | Sort-Object -Descending)[0]
-    & $Global:Log -Message "Found synchronized bundle for date: $latestCommonDate" -Level "DEBUG" -Color Green
-    
+    $latestVersion = ($commonVersions | Sort-Object -Descending)[0]
     $finalPackages = @{}
     foreach ($pkg in $packages) {
-        $match = $packageBuilds[$pkg] | Where-Object { $_.Date -eq $latestCommonDate } | Select-Object -First 1
-        $version = "Unknown"
-        if ($match.FileName -match "^$($pkg)-([\d\.\w\+]+)-cp312") { $version = $Matches[1] }
-        
+        $match = $packageBuilds[$pkg] | Where-Object { $_.Version -eq $latestVersion } | Select-Object -First 1
         $finalPackages[$pkg] = @{
             Url      = "$baseUrlBase/$pkg/$($match.RawHref)"
             FileName = $match.FileName
-            Version  = $version
+            Version  = $latestVersion
         }
     }
 
-    return @{ Packages = $finalPackages; Version = "Nightly-a$latestCommonDate" }
+    return @{ Packages = $finalPackages; Version = $latestVersion }
 }
 
 Function Sync-TorchArchives {
     Param([hashtable]$BuildInfo)
     $cacheDir = Join-Path $PSScriptRoot "..\.cache"
     $versionFile = Join-Path $cacheDir "torch-version.txt"
+    
+    if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir | Out-Null }
+
+    # Keys are derived from the matched BuildInfo
+    $packages = $BuildInfo.Packages.Keys
     $success = $true
 
-    # Process in priority order
-    $packages = @("rocm", "torch", "torchvision", "torchaudio")
     foreach ($pkg in $packages) {
         $item = $BuildInfo.Packages[$pkg]
         $targetPath = Join-Path $cacheDir $item.FileName
 
         if (Test-Path $targetPath) { continue }
 
-        & $Global:Log -Message "Downloading latest $pkg wheel..." -Level "INFO"
-        Get-ChildItem $cacheDir -Filter "$pkg-*.whl" | Remove-Item -Force
-        & curl.exe --fail -L -# -o "$targetPath" "$($item.Url)"
+        & $Global:Log -Message "Syncing: $($item.FileName)" -Level "INFO"
         
+        # IMPROVED SURGICAL CLEANUP:
+        # 1. Escapes the package name for regex and handles dash/underscore flexibility.
+        # 2. Anchors to the start of the string (^) so 'rocm' doesn't match 'torch-...+rocm'.
+        # 3. Ensures the package name is followed by a separator and a digit (the version start).
+        $escapedPkg = [regex]::Escape($pkg) -replace '-', '[-_]'
+        $cleanupRegex = "^$($escapedPkg)[-_](?=\d)"
+
+        Get-ChildItem $cacheDir | Where-Object { 
+            $_.Name -match $cleanupRegex -and 
+            $_.Name -match "\.(whl|tar\.gz)$" -and 
+            $_.Name -ne $item.FileName 
+        } | Remove-Item -Force -ErrorAction SilentlyContinue
+        
+        & curl.exe --fail -L -# -o "$targetPath" "$($item.Url)"
         if ($LASTEXITCODE -ne 0) { $success = $false; break }
     }
 
     if ($success) {
-        # Log in priority order: ROCM first
-        $logContent = @(
-            "ROCM: $($BuildInfo.Packages['rocm'].Version)",
-            "TORCH: $($BuildInfo.Packages['torch'].Version)",
-            "TORCHVISION: $($BuildInfo.Packages['torchvision'].Version)",
-            "TORCHAUDIO: $($BuildInfo.Packages['torchaudio'].Version)"
-        )
-        $logContent | Out-File $versionFile -Force
+        $manifest = foreach ($pkg in $packages) { 
+            "$($pkg.ToUpper()): $($BuildInfo.Packages[$pkg].FileName)" 
+        }
+        $manifest | Out-File $versionFile -Force
         return $true
     }
     return $false
