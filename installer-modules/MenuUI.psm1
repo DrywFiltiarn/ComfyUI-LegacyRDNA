@@ -18,24 +18,30 @@ Function Show-Header {
     Write-Host "================================================================" -ForegroundColor Gray
     Write-Host "  GPU: $GPUName ($Arch) | VRAM: $VRAM" -ForegroundColor White
     Write-Host "----------------------------------------------------------------" -ForegroundColor Gray
-    Write-Host "  $("ROCm SDK".PadRight(15)): " -NoNewline; Write-Host "$RocmVer" -ForegroundColor Yellow
+    Write-Host "  $("ROCm SDK".PadRight(15)) : " -NoNewline; Write-Host "$RocmVer" -ForegroundColor Yellow
     Write-Host "----------------------------------------------------------------" -ForegroundColor Gray
 
+    $sdkLibsVal = if ($TorchVers.ContainsKey($libKey)) { $TorchVers[$libKey] } else { "None" }
+    if ($sdkLibsVal -ne "None" -and $sdkLibsVal -notmatch "\|") {
+        $sdkLibsVal = "$sdkLibsVal | $archLower"
+    }
+
     # List in order of relevance
-    $items = @(
-        @{ Key = "rocm-sdk-core"; Label = "ROCm SDK Core" },
-        @{ Key = $libKey;         Label = "ROCm SDK Libs" },
-        @{ Key = "rocm";          Label = "ROCm Python" },
-        @{ Key = "torch";         Label = "PyTorch" },
-        @{ Key = "torchvision";   Label = "PyTorch Vision" },
-        @{ Key = "torchaudio";    Label = "PyTorch Audio" }
+    $displayItems = @(
+        @{ Label = "ROCm SDK Core"  ; Value = $TorchVers['rocm-sdk-core'] }
+        @{ Label = "ROCm SDK Libs"  ; Value = $sdkLibsVal }
+        @{ Label = "ROCm Python"    ; Value = $TorchVers['rocm'] }
+        @{ Label = "PyTorch"        ; Value = $TorchVers['torch'] }
+        @{ Label = "PyTorch Vision" ; Value = $TorchVers['torchvision'] }
+        @{ Label = "PyTorch Audio"  ; Value = $TorchVers['torchaudio'] }
     )
 
-    foreach ($item in $items) {
-        $val = if ($TorchVers.ContainsKey($item.Key)) { $TorchVers[$item.Key] } else { "None" }
-        Write-Host "  $($item.Label.PadRight(15)): " -NoNewline
+    foreach ($item in $displayItems) {
+        $val = if ($item.Value) { $item.Value } else { "None" }
+        Write-Host "  $($item.Label.PadRight(15)) : " -NoNewline
         Write-Host "$val" -ForegroundColor Yellow
     }
+
     Write-Host "----------------------------------------------------------------" -ForegroundColor Gray
     Write-Host ""
 }

@@ -2,28 +2,33 @@ Function Get-InstalledTorchVersions {
     $cacheDir = Join-Path $PSScriptRoot "..\.cache"
     $versionFile = Join-Path $cacheDir "torch-version.txt"
     
+    # Resolve dynamic library name
     $ArchSuffix = $Global:Env_GfxArch.ToLower()
     $LibPkg = "rocm-sdk-libraries-$ArchSuffix-dgpu"
     
-    # Define packages to look for
     $packageNames = @("rocm-sdk-core", $LibPkg, "rocm", "torch", "torchvision", "torchaudio")
-    
     $results = @{ Success = $false; Versions = @{} }
     foreach ($pkg in $packageNames) { $results.Versions[$pkg] = "None" }
 
     if (-not (Test-Path $versionFile)) { return $results }
 
-    # Read the manifest directly
+    # Read manifest directly to avoid pipeline scoping issues
     $lines = Get-Content $versionFile
     $missingAny = $false
 
     foreach ($pkg in $packageNames) {
-        # Match the line format "PACKAGE: filename" created by Sync-TorchArchives
         $line = $lines | Where-Object { $_ -match "^$($pkg.ToUpper()):\s+(.*)" }
         if ($line) {
             $fileName = $Matches[1]
-            # Extract the date-based version (e.g., 7.13.0a20260326)
-            if ($fileName -match "(\d+\.\d+\.\d+a\d{8})") {
+            
+            # Captures both the package version (e.g., 2.10.0) and ROCm date (e.g., 7.13.0a20260326)
+            # Logic: Look for the first version string (package) and the one starting with 7.x (ROCm)
+            if ($fileName -match "-([\d\.]+).*(7\.\d+\.\d+a\d{8})") {
+                # Format: ROCm-Ver | Package-Ver
+                $results.Versions[$pkg] = "$($Matches[2]) | $($Matches[1])"
+            }
+            elseif ($fileName -match "(7\.\d+\.\d+a\d{8})") {
+                # Fallback for core/python packages
                 $results.Versions[$pkg] = $Matches[1]
             }
         }
