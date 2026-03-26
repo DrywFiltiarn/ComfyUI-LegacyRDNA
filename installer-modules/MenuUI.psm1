@@ -1,18 +1,27 @@
 # installer-modules\MenuUI.psm1
 
 Function Show-Header {
-    Param($GPUName, $Arch, $VRAM, $RocmVer, $TorchVers)
+    Param(
+        [string]$GPUName,
+        [string]$Arch,
+        [string]$VRAM,
+        [string]$RocmVer,     # The ROCm SDK Version
+        [hashtable]$TorchVers # Contains torch, torchvision, torchaudio, and rocm
+    )
+    
     Clear-Host
-    Write-Host "=====================================================================" -ForegroundColor Cyan
-    Write-Host "   ComfyUI-LegacyRDNA Project | Milestone 2.9.0" -ForegroundColor White
-    Write-Host "=====================================================================" -ForegroundColor Cyan
-    Write-Host "  Hardware        : $GPUName ($Arch) | VRAM: $VRAM" -ForegroundColor Gray
-    Write-Host "  ROCm SDK        : $RocmVer" -ForegroundColor Yellow
-    Write-Host "---------------------------------------------------------------------" -ForegroundColor DarkGray
-    Write-Host "  PyTorch         : $($TorchVers.torch)" -ForegroundColor Yellow
-    Write-Host "  PyTorch Vision  : $($TorchVers.torchvision)" -ForegroundColor Yellow
-    Write-Host "  PyTorch Audio   : $($TorchVers.torchaudio)" -ForegroundColor Yellow
-    Write-Host "=====================================================================" -ForegroundColor Cyan
+    Write-Host "================================================================" -ForegroundColor Gray
+    Write-Host "          ComfyUI-LegacyRDNA - ROCm Nightly Manager             " -ForegroundColor Cyan
+    Write-Host "================================================================" -ForegroundColor Gray
+    Write-Host "  GPU: $GPUName ($Arch) | VRAM: $VRAM" -ForegroundColor White
+    Write-Host "----------------------------------------------------------------" -ForegroundColor Gray
+    Write-Host "  ROCm SDK: " -NoNewline; Write-Host "$RocmVer" -ForegroundColor Yellow
+    Write-Host "----------------------------------------------------------------" -ForegroundColor Gray
+    Write-Host "  ROCm Py:  " -NoNewline; Write-Host "$($TorchVers.rocm)" -ForegroundColor Yellow
+    Write-Host "  Torch:    " -NoNewline; Write-Host "$($TorchVers.torch)" -ForegroundColor Yellow
+    Write-Host "  Vision:   " -NoNewline; Write-Host "$($TorchVers.torchvision)" -ForegroundColor Yellow
+    Write-Host "  Audio:    " -NoNewline; Write-Host "$($TorchVers.torchaudio)" -ForegroundColor Yellow
+    Write-Host "----------------------------------------------------------------" -ForegroundColor Gray
     Write-Host ""
 }
 

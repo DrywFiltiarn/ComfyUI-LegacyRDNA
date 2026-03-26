@@ -44,13 +44,14 @@ try {
 
     while ($running) {
         $rocmVersion = Get-InstalledRocmVersion
-        $torchVers = Get-InstalledTorchVersions
+        $torchStatus = Get-InstalledTorchVersions
+        $torchVers = $torchStatus.Versions
         $valStatus = Get-ValidationStatus
         
         Assert-ValidationIntegrity -Status $valStatus
 
         $rocmAction = if ($rocmVersion -eq "None") { "Install" } else { "Update" }
-        $hasAllTorch = ($torchVers.torch -ne "None") -and ($torchVers.torchvision -ne "None") -and ($torchVers.torchaudio -ne "None")
+        $hasAllTorch = $torchStatus.Success
         $torchAction = if ($hasAllTorch) { "Update" } else { "Download" }
         $valAction = if ($valStatus -eq "None") { "Install" } else { "Update" }
         $canRunVal = ($valStatus -eq "Ready")
